@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# ignore api_key
+DolphinApi/config.py
+
 # C extensions
 *.so
 
