@@ -16,16 +16,14 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
 
     # Update portfolio with new weights
     assets_dataframe = pd.DataFrame(
-        data={'asset_id': asset_ids, 'quantities': weights})
+        data={'asset_id': asset_ids, 'quantities': weights*100000})
     print(weights)
     # Put portfolio
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
     # Get and return computed sharpe value
 
-    sharp = post_operations([12], [portefolio_id],
-                            start_period, end_period).iloc[0, 0]
+    sharp = post_operations([12], [portefolio_id], start_period, end_period).values[0, 0]
     # return -sum([weights[i] * asset_ids[i] for i in range(len(asset_ids))])
-
     print(sharp)
     return -sharp
 
@@ -94,7 +92,7 @@ def is_fund_or_etf_or_index(x, asset_ids):
 
 
 def rend_calc(asset_ids, x, i):
-    rend_line = post_operations([13], asset_ids, start_period, end_period)[0]
+    rend_line = post_operations([13], asset_ids, start_period, end_period).values[:,0]
     return rend_line[i] * x[i] / np.sum(np.array(rend_line) * np.array(x))
     #rendement_id(asset_ids[i], x[i]*100000) / rendement_ids(asset_ids, x*100000)
 
