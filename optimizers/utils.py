@@ -1,5 +1,5 @@
-from dolphinApi.dolphinApi import DolphinApi, api
-from dolphinApi.config import *
+from DolphinApi.DolphinApi import DolphinApi, api
+from DolphinApi.config import *
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -149,28 +149,16 @@ def get_assets_portfolio(portfolio, date):
     return portfolio['values'][date]
 
 
-def convertTo_json_assets(assets_df):
-    """
-    Transform assets and quantities array to json
-
-    Assets and Quantities array must be the same length
-    """
-    return ''.join(['{{"asset":{{"asset": {}, "quantity": {}}}}},'
-                    .format(int(assets_df.iloc[i, 0]),
-                            int(assets_df.iloc[i, 1])) for i in range(len(assets_df))])[:-1]
-
-
-def seralize_portfolio_content(df_portfolio, assets):
+def put_portfolio(portfolio_id, df_portfolio, assets):
     label = df_portfolio['label'][0]
     currency = df_portfolio['currency'][0]
     type_ = df_portfolio['type'][0]
     date = '2016-06-01'
-    assets = convertTo_json_assets(assets)
-    res = '{{"label": "{}", "currency": {{"code": "{}"}}, "type": "{}", "values": {{"{}": [{}]}}}}'.format(
-        label, currency, type_, date, assets)
-    return json.loads(res)
-
-
-def put_portfolio(portfolio_id, df_portfolio, assets):
-    api.put('portfolio/{}/dyn_amount_compo'.format(portfolio_id),
-            seralize_portfolio_content(df_portfolio, assets))
+    form = '{{"asset":{{"asset": {}, "quantity": {}}}}},'
+    assets = ''.join([form.format(int(assets.iloc[i, 0]),
+                                  int(assets.iloc[i, 1]))
+                      for i in range(len(assets))])[:-1]
+    form = '{{"label": "{}", "currency": {{"code": "{}"}}, "type": "{}", "values": {{"{}": [{}]}}}}'
+    res = form.format(label, currency, type_, date, assets)
+    form = 'portfolio/{}/dyn_amount_compo'
+    api.put(form.format(portfolio_id), json.loads(res))

@@ -2,9 +2,8 @@ import numpy as np
 import pandas as pd
 import scipy.optimize as optimize
 
-from dolphinApi.config import *
+from DolphinApi.config import *
 from optimizers.utils import *
-from optimizers.reduce import choose_from
 
 
 def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
@@ -16,17 +15,20 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     """
 
     # Update portfolio with new weights
-    assets_dataframe = pd.DataFrame(data={'asset_id': asset_ids, 'quantities': weights})
+    assets_dataframe = pd.DataFrame(
+        data={'asset_id': asset_ids, 'quantities': weights})
     print(weights)
     # Put portfolio
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
     # Get and return computed sharpe value
 
-    sharp = post_operations([12], [portefolio_id], start_period, end_period).iloc[0,0]
+    sharp = post_operations([12], [portefolio_id],
+                            start_period, end_period).iloc[0, 0]
     # return -sum([weights[i] * asset_ids[i] for i in range(len(asset_ids))])
-    
+
     print(sharp)
     return -sharp
+
 
 def optimize_portfolio(asset_ids):
     """
@@ -47,15 +49,15 @@ def optimize_portfolio(asset_ids):
     weights = [1] * nb_assets
     weights[-1] = 1001 - sum(weights)
 
-    weights = (np.random.dirichlet(np.ones(nb_assets-1),size=1)*100)[0]
+    weights = (np.random.dirichlet(np.ones(nb_assets-1), size=1)*100)[0]
     weights = list(weights)
     weights.append(100 - sum(weights))
 
     print(weights)
     print(asset_ids)
-    
+
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 100},)
-                #    {'type': 'eq', 'fun': lambda x: max([x[i]-int(x[i]) for i in range(len(x))])})
+    #    {'type': 'eq', 'fun': lambda x: max([x[i]-int(x[i]) for i in range(len(x))])})
 
     bounds = tuple((1, 10) for x in range(nb_assets))
     # entre 0 et le volume de l'asset à la date de départ
@@ -65,16 +67,80 @@ def optimize_portfolio(asset_ids):
                                        weights,
                                        (asset_ids, portefolio_id, portefolio),
                                        method='SLSQP',
-                                       options={'maxiter': 100, 'ftol': 1e-06, 'iprint': 1, 'disp': False, 'eps': 0.3, 'finite_diff_rel_step': None},
+                                       options={'maxiter': 100, 'ftol': 1e-06, 'iprint': 1,
+                                                'disp': False, 'eps': 0.3, 'finite_diff_rel_step': None},
                                        bounds=bounds,
                                        constraints=constraints)
     optimal_sharpe_arr = optimal_sharpe['x']
     print(f"[DEBUG] After optimization : {optimal_sharpe_arr}")
-    print("sharp of portfolio =", post_operations([12], [portefolio_id], start_period, end_period).iloc[0,0])
+    print("sharp of portfolio =", post_operations(
+        [12], [portefolio_id], start_period, end_period).iloc[0, 0])
     print("sharp of ref =", post_operations(
-        [12], [2201], start_period, end_period).iloc[0,0])
+        [12], [2201], start_period, end_period).iloc[0, 0])
 
 
-def best_sharper():
-    arr = choose_from(start_period, end_period, 40)
-    optimize_portfolio(arr)
+def get_type(id_):
+    data = api.get(
+        'asset?columns=TYPE&columns=ASSET_DATABASE_ID&date={}'.format(start_period))
+    asset = convert_type(pd.read_json(data))
+    return asset[asset['ASSET_DATABASE_ID'] == id_].values[0, 0]
+
+
+def is_fund_or_etf_or_index(x, asset_ids):
+    res = 0
+    for i, id_ in enumerate(asset_ids):
+        res = x[i] if get_type(id_) != "stock" else 0
+    return res
+
+
+def rend_calc(asset_ids, x, i):
+    rend_line = post_operations([13], asset_ids, start_period, end_period)[0]
+    return rend_line[i] * x[i] / np.sum(np.array(rend_line) * np.array(x))
+    #rendement_id(asset_ids[i], x[i]*100000) / rendement_ids(asset_ids, x*100000)
+
+
+
+def neo_opti_portfolio(asset_ids):
+    """
+    Optimize the number of each asserts in the portfolio
+
+    The asserts themselves cannot be changed
+
+    Parameters
+    ----------  
+    assets : array
+        Assets id in the portfolio
+    """
+
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+    nb_assets = len(asset_ids)
+    weights = [1 / nb_assets] * nb_assets
+
+    print(weights)
+    print(asset_ids)
+
+    constraints_list = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
+                        {'type': 'eq', 'fun': lambda x: is_fund_or_etf_or_index(x, asset_ids) - 0.49}]
+    inf_borne = [{'type': 'eq', 'fun': lambda x: rend_calc(
+        asset_ids, x, i) - 0.1} for i in range(len(asset_ids))]
+    constraints_list.append(inf_borne[0])
+    sup_borne = [{'type': 'eq', 'fun': lambda x: 0.01 -
+                  rend_calc(asset_ids, x, i)} for i in range(len(asset_ids))]
+    constraints_list.append(sup_borne[0])
+    constraints = tuple(constraints_list)
+
+    bounds = tuple((0, 1) for x in range(nb_assets))
+
+    optimal_sharpe = optimize.minimize(minimize_negative_sharpe,
+                                       weights,
+                                       (asset_ids, portefolio_id, portefolio),
+                                       method='SLSQP',
+                                       bounds=bounds,
+                                       constraints=constraints)
+    optimal_sharpe_arr = optimal_sharpe['x']
+    print(f"[DEBUG] After optimization : {optimal_sharpe_arr}")
+    print("sharp of portfolio =", post_operations(
+        [12], [portefolio_id], start_period, end_period).iloc[0, 0])
+    print("sharp of ref =", post_operations(
+        [12], [2201], start_period, end_period).iloc[0, 0])
