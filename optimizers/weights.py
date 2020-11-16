@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pyswarm import pso
 import scipy.optimize as optimize
 
 from DolphinApi.config import *
@@ -21,8 +22,8 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     # Put portfolio
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
     # Get and return computed sharpe value
-
-    sharp = post_operations([12], [portefolio_id], start_period, end_period).values[0, 0]
+    post_operations([12], [portefolio_id],start_period, end_period) #must do at least once..
+    sharp = post_operations([12], [portefolio_id],start_period, end_period).values[0, 0]
     # return -sum([weights[i] * asset_ids[i] for i in range(len(asset_ids))])
     print(sharp)
     return -sharp
@@ -92,10 +93,10 @@ def is_fund_or_etf_or_index(x, asset_ids):
 
 
 def rend_calc(asset_ids, x, i):
-    rend_line = post_operations([13], asset_ids, start_period, end_period).values[:,0]
+    rend_line = post_operations(
+        [13], asset_ids, start_period, end_period).values[:, 0]
     return rend_line[i] * x[i] / np.sum(np.array(rend_line) * np.array(x))
     #rendement_id(asset_ids[i], x[i]*100000) / rendement_ids(asset_ids, x*100000)
-
 
 
 def neo_opti_portfolio(asset_ids):
@@ -113,9 +114,6 @@ def neo_opti_portfolio(asset_ids):
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
     nb_assets = len(asset_ids)
-    weights = [1 / nb_assets] * nb_assets
-
-    print(weights)
     print(asset_ids)
 
     constraints_list = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
@@ -142,3 +140,52 @@ def neo_opti_portfolio(asset_ids):
         [12], [portefolio_id], start_period, end_period).iloc[0, 0])
     print("sharp of ref =", post_operations(
         [12], [2201], start_period, end_period).iloc[0, 0])
+
+
+def pso_portfolio(asset_ids):
+    """
+    Optimize the number of each asserts in the portfolio
+
+    The asserts themselves cannot be changed
+
+    Parameters
+    ----------  
+    assets : array
+        Assets id in the portfolio
+    """
+
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+    nb_assets = len(asset_ids)
+    weights = [1 / nb_assets] * nb_assets
+
+    # print(weights)
+    # print(asset_ids)
+
+    def constraints_list(x, asset_ids, c, d):
+        s = np.sum(x) - 1
+        f = is_fund_or_etf_or_index(x, asset_ids) - 0.49
+        lb = [rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
+        ub = [0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
+        res = [s, f]
+        res.append(lb[0])
+        res.append(ub[0])
+        return res
+    
+    constraints = constraints_list
+    print(constraints)
+
+    lb = [0] * nb_assets
+    ub = [1] * nb_assets
+
+    optimal_sharpe = pso(minimize_negative_sharpe, lb, ub, f_ieqcons=constraints, args=(
+        asset_ids, portefolio_id, portefolio))
+    print(optimal_sharpe)
+    optimal_sharpe_arr = optimal_sharpe['x']
+    print(f"[DEBUG] After optimization : {optimal_sharpe_arr}")
+    print("sharp of portfolio =", post_operations(
+        [12], [portefolio_id], start_period, end_period).iloc[0, 0])
+    print("sharp of ref =", post_operations(
+        [12], [2201], start_period, end_period).iloc[0, 0])
+
+    # constraints_list = lambda x, a, b, c: [np.sum(x) - 1, is_fund_or_etf_or_index(x, asset_ids) - 0.49, [rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))], [0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]]
