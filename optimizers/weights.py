@@ -18,7 +18,7 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     # Update portfolio with new weights
     assets_dataframe = pd.DataFrame(
         data={'asset_id': asset_ids, 'quantities': weights*100000})
-    print(weights)
+    # print(weights)
     # Put portfolio
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
     # Get and return computed sharpe value
@@ -157,10 +157,6 @@ def pso_portfolio(asset_ids):
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
     nb_assets = len(asset_ids)
-    weights = [1 / nb_assets] * nb_assets
-
-    # print(weights)
-    # print(asset_ids)
 
     def constraints_list(x, asset_ids, c, d):
         s = np.sum(x) - 1
