@@ -7,6 +7,25 @@ from DolphinApi.config import *
 from optimizers.utils import *
 
 
+def process_val_back(id_, w):
+    cols = ["columns=ASSET_DATABASE_ID", "columns=LABEL",
+            "columns=TYPE", "columns=LAST_CLOSE_VALUE_IN_CURR",
+            "columns=CURRENCY", "columns=MIN_BUY_AMOUNT",
+            "columns=asset_fund_info_decimalisation"]
+    endpointApi = "asset?{}&date={}".format("&".join(cols), start_period)
+    data = pd.read_json(api.get(endpointApi))
+    assets = convert_type(data)
+    assets = assets[(assets['LAST_CLOSE_VALUE_IN_CURR'].notna())
+                    & (assets['TYPE'] != 'PORTFOLIO')].reset_index()
+    assets['MIN_BUY_AMOUNT'] = assets['MIN_BUY_AMOUNT'].fillna(value=1)
+    assets['asset_fund_info_decimalisation'] = assets['asset_fund_info_decimalisation'].fillna(
+        value=0)
+    assets = assets[['ASSET_DATABASE_ID', 'LABEL', 'CURRENCY',
+                     'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation']]
+    assets = assets[assets['ASSET_DATABASE_ID']= id_]
+    return w / (asset_min_buy or 1)
+
+
 def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     """
     Minimize the negative sharpe on the entire portfolio
@@ -15,10 +34,15 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     the negative of our portfolio sharpe (which we want to be big)
     """
 
+    weights = np.array([process_val_back(asset_ids[i], weights[i]*100000)
+                        for i in range(len(asset_ids))])
+
     # Update portfolio with new weights
     assets_dataframe = pd.DataFrame(
-        data={'asset_id': asset_ids, 'quantities': weights*100000})
-    
+        data={'asset_id': asset_ids, 'quantities': weights})
+
+    assets_dataframe['weighths']
+
     # Put portfolio
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
 
