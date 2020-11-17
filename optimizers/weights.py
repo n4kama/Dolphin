@@ -7,6 +7,37 @@ from DolphinApi.config import *
 from optimizers.utils import *
 
 
+def get_v_r_s():
+    try:
+        back_val_table = pd.read_csv("back_val_table.csv", index_col=0)
+    except FileNotFoundError:
+        cols = ["columns=ASSET_DATABASE_ID", "columns=LABEL",
+                "columns=TYPE", "columns=LAST_CLOSE_VALUE_IN_CURR",
+                "columns=CURRENCY", "columns=MIN_BUY_AMOUNT",
+                "columns=asset_fund_info_decimalisation"]
+        endpointApi = "asset?{}&date={}".format("&".join(cols), start_period)
+        data = pd.read_json(api.get(endpointApi))
+        assets = convert_type(data)
+        assets = assets[(assets['LAST_CLOSE_VALUE_IN_CURR'].notna())
+                        & (assets['TYPE'] != 'PORTFOLIO')].reset_index()
+        assets['MIN_BUY_AMOUNT'] = assets['MIN_BUY_AMOUNT'].fillna(value=1)
+        assets['asset_fund_info_decimalisation'] = assets['asset_fund_info_decimalisation'].fillna(
+            value=0)
+        assets = assets[['ASSET_DATABASE_ID', 'LABEL', 'CURRENCY',
+                         'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation']]
+        back_val_table = assets
+        back_val_table.to_csv("back_val_table.csv")
+    try:
+        v_r_s = pd.read_csv("v_r_s.csv", index_col=0)
+    except FileNotFoundError:
+        print(back_val_table.ASSET_DATABASE_ID.values)
+        v_r_s = post_operations(
+            [10, 12, 13], back_val_table.ASSET_DATABASE_ID.tolist(), start_period, end_period)
+        v_r_s.to_csv("v_r_s.csv")
+
+    return v_r_s
+
+
 def process_val_back(id_, w):
     try:
         back_val_table = pd.read_csv("back_val_table.csv", index_col=0)
@@ -62,6 +93,33 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     return -sharp
 
 
+def min_func(weights, asset_ids, portefolio_id, portefolio):
+    """
+    Minimize the negative sharpe on the entire portfolio
+
+    Since optimize.minimize seeks to minimize, we return
+    the negative of our portfolio sharpe (which we want to be big)
+    """
+
+    # arrange weights given min_buy
+    weights = np.array([process_val_back(asset_ids[i], weights[i]*100000)
+                        for i in range(len(asset_ids))])
+
+    # Update portfolio with new weights
+    assets_dataframe = pd.DataFrame(
+        data={'asset_id': asset_ids, 'quantities': weights})
+
+    vrs_df = get_v_r_s()
+    returns = vrs_df.loc[asset_ids, :].Rendement.values
+    volas = np.sqrt(np.dot(weights.T, np.dot(np.cov(np.log(returns)), weights)))
+    sharpes = vrs_df.Sharpe.values
+    sharpe = ((np.dot(returns, weights) - 0.05) / volas)
+    print(sharpe)
+
+    # print(sharp)
+    return sharpe
+
+
 def get_type(id_):
     data = api.get(
         'asset?columns=TYPE&columns=ASSET_DATABASE_ID&date={}'.format(start_period))
@@ -79,6 +137,12 @@ def is_fund_or_etf_or_index(x, asset_ids):
 def rend_calc(asset_ids, x, i):
     rend_line = post_operations(
         [13], asset_ids, start_period, end_period).values[:, 0]
+    return (rend_line[i] * x[i]) / (np.dot(np.array(rend_line), np.array(x)))
+
+
+def rend_calc_(asset_ids, x, i):
+    vrs_df = get_v_r_s()
+    rend_line = vrs_df.loc[asset_ids, :].Rendement.values
     return (rend_line[i] * x[i]) / (np.dot(np.array(rend_line), np.array(x)))
 
 
@@ -142,24 +206,57 @@ def pso_portfolio(asset_ids):
     portefolio = get_epita_portfolio()
     nb_assets = len(asset_ids)
 
-    # def constraints_list(x, asset_ids, c, d):
-    #     res = [np.sum(x) - 1]
-    #     lb = [rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
-    #     ub = [0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
-    #     res.append(lb[0])
-    #     res.append(ub[0])
-    #     return res
-    res = [lambda x, assets_ids, c, d: np.sum(x) - 1]
-    lb = [lambda x, assets_ids, c, d: rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
-    ub = [lambda x, assets_ids, c, d: 0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
-    res.append(lb[0])
-    res.append(ub[0])
-    constraints = res
+    constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1]
+    lb = [lambda x, assets_ids, c, d: rend_calc(
+        asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
+    ub = [lambda x, assets_ids, c, d: 0.01 -
+          rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
+    constraints.append(lb[0])
+    constraints.append(ub[0])
 
     lb = [0] * nb_assets
     ub = [1] * nb_assets
 
     xopt, fopt = pso(minimize_negative_sharpe, lb, ub, ieqcons=constraints, args=(
+        asset_ids, portefolio_id, portefolio), debug=True)
+    print(xopt)
+    optimal_sharpe_arr = xopt * 100000
+    print(f"[DEBUG] After optimization : {optimal_sharpe_arr}")
+    print("sharp of portfolio =", post_operations(
+        [12], [portefolio_id], start_period, end_period).values[0, 0])
+    print("sharp of ref =", post_operations(
+        [12], [2201], start_period, end_period).values[0, 0])
+    return np.array(optimal_sharpe_arr)
+
+
+def opti_pso_portfolio(asset_ids):
+    """
+    Optimize the number of each asserts in the portfolio
+
+    The asserts themselves cannot be changed
+
+    Parameters
+    ----------  
+    assets : array
+        Assets id in the portfolio
+    """
+
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+    nb_assets = len(asset_ids)
+
+    constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1]
+    lb = [lambda x, assets_ids, c, d: rend_calc(
+        asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
+    ub = [lambda x, assets_ids, c, d: 0.01 -
+          rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
+    constraints.append(lb[0])
+    constraints.append(ub[0])
+
+    lb = [0] * nb_assets
+    ub = [1] * nb_assets
+
+    xopt, fopt = pso(min_func, lb, ub, ieqcons=constraints, args=(
         asset_ids, portefolio_id, portefolio), debug=True)
     print(xopt)
     optimal_sharpe_arr = xopt * 100000
