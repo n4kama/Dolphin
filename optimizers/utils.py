@@ -10,15 +10,7 @@ def to_eur(src_value):
     value, src_currency = src_value.split(' ')
     rate = api.currency_table[api.currency_table['currency']
                               == src_currency]['rate'].values[0]
-    return str_to_float(value) * float(rate)
-
-
-def str_to_datetime(value):
-    return datetime.strptime(value, '%Y-%m-%d').date()
-
-
-def str_to_float(value):
-    return float(value.replace(',', '.'))
+    return float(value.replace(',', '.')) * float(rate)
 
 
 def convert_type(df):
@@ -33,9 +25,9 @@ def convert_type(df):
             if elt_type == 'currency_value':
                 elt_value = to_eur(elt_value)
             elif elt_type == 'date':
-                elt_value = str_to_datetime(elt_value)
+                elt_value = datetime.strptime(elt_value, '%Y-%m-%d').date()
             elif elt_type in ['double', 'percent']:
-                elt_value = str_to_float(elt_value)
+                elt_value = float(elt_value.replace(',', '.'))
             elif elt_type in ['asset', 'int32', 'int64']:
                 elt_value = int(elt_value)
             elif elt_type == 'boolean':
