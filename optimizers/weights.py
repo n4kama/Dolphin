@@ -8,21 +8,28 @@ from optimizers.utils import *
 
 
 def process_val_back(id_, w):
-    cols = ["columns=ASSET_DATABASE_ID", "columns=LABEL",
-            "columns=TYPE", "columns=LAST_CLOSE_VALUE_IN_CURR",
-            "columns=CURRENCY", "columns=MIN_BUY_AMOUNT",
-            "columns=asset_fund_info_decimalisation"]
-    endpointApi = "asset?{}&date={}".format("&".join(cols), start_period)
-    data = pd.read_json(api.get(endpointApi))
-    assets = convert_type(data)
-    assets = assets[(assets['LAST_CLOSE_VALUE_IN_CURR'].notna())
-                    & (assets['TYPE'] != 'PORTFOLIO')].reset_index()
-    assets['MIN_BUY_AMOUNT'] = assets['MIN_BUY_AMOUNT'].fillna(value=1)
-    assets['asset_fund_info_decimalisation'] = assets['asset_fund_info_decimalisation'].fillna(
-        value=0)
-    assets = assets[['ASSET_DATABASE_ID', 'LABEL', 'CURRENCY',
-                     'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation']]
-    assets = assets[assets['ASSET_DATABASE_ID']= id_]
+    try:
+        back_val_table = pd.read_csv("back_val_table.csv", index_col=0)
+    except FileNotFoundError:
+        cols = ["columns=ASSET_DATABASE_ID", "columns=LABEL",
+                "columns=TYPE", "columns=LAST_CLOSE_VALUE_IN_CURR",
+                "columns=CURRENCY", "columns=MIN_BUY_AMOUNT",
+                "columns=asset_fund_info_decimalisation"]
+        endpointApi = "asset?{}&date={}".format("&".join(cols), start_period)
+        data = pd.read_json(api.get(endpointApi))
+        assets = convert_type(data)
+        assets = assets[(assets['LAST_CLOSE_VALUE_IN_CURR'].notna())
+                        & (assets['TYPE'] != 'PORTFOLIO')].reset_index()
+        assets['MIN_BUY_AMOUNT'] = assets['MIN_BUY_AMOUNT'].fillna(value=1)
+        assets['asset_fund_info_decimalisation'] = assets['asset_fund_info_decimalisation'].fillna(
+            value=0)
+        assets = assets[['ASSET_DATABASE_ID', 'LABEL', 'CURRENCY',
+                         'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation']]
+        back_val_table = assets
+        back_val_table.to_csv("back_val_table.csv")
+
+    asset_min_buy = back_val_table[back_val_table['ASSET_DATABASE_ID']
+                                   == id_].MIN_BUY_AMOUNT.values[0]
     return w / (asset_min_buy or 1)
 
 
@@ -41,7 +48,7 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     assets_dataframe = pd.DataFrame(
         data={'asset_id': asset_ids, 'quantities': weights})
 
-    assets_dataframe['weighths']
+    # assets_dataframe['weighths']
 
     # Put portfolio
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
@@ -72,7 +79,7 @@ def is_fund_or_etf_or_index(x, asset_ids):
 def rend_calc(asset_ids, x, i):
     rend_line = post_operations(
         [13], asset_ids, start_period, end_period).values[:, 0]
-    return rend_line[i] * x[i] / np.sum(np.array(rend_line) * np.array(x))
+    return (rend_line[i] * x[i]) / (np.dot(np.array(rend_line), np.array(x)))
 
 
 def neo_opti_portfolio(asset_ids):
@@ -136,11 +143,9 @@ def pso_portfolio(asset_ids):
     nb_assets = len(asset_ids)
 
     def constraints_list(x, asset_ids, c, d):
-        s = np.sum(x) - 1
-        f = is_fund_or_etf_or_index(x, asset_ids) - 0.49
+        res = [np.sum(x) - 1]
         lb = [rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
         ub = [0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
-        res = [s, f]
         res.append(lb[0])
         res.append(ub[0])
         return res
@@ -150,8 +155,8 @@ def pso_portfolio(asset_ids):
     lb = [0] * nb_assets
     ub = [1] * nb_assets
 
-    xopt, fopt = pso(minimize_negative_sharpe, lb, ub, args=(
-        asset_ids, portefolio_id, portefolio))
+    xopt, fopt = pso(minimize_negative_sharpe, lb, ub, f_ieqcons=constraints, args=(
+        asset_ids, portefolio_id, portefolio), debug=True)
     print(xopt)
     optimal_sharpe_arr = xopt * 100000
     print(f"[DEBUG] After optimization : {optimal_sharpe_arr}")
@@ -159,3 +164,4 @@ def pso_portfolio(asset_ids):
         [12], [portefolio_id], start_period, end_period).values[0, 0])
     print("sharp of ref =", post_operations(
         [12], [2201], start_period, end_period).values[0, 0])
+    return np.array(optimal_sharpe_arr)
