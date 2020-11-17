@@ -15,16 +15,15 @@ def get_assets_ids(date):
     assets['MIN_BUY_AMOUNT'] = assets['MIN_BUY_AMOUNT'].fillna(value=1)
     assets['asset_fund_info_decimalisation'] = assets['asset_fund_info_decimalisation'].fillna(
         value=0)
-    return assets[['ASSET_DATABASE_ID', 'LABEL', 'CURRENCY', 'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation', "TYPE"]]
+    return assets[['ASSET_DATABASE_ID', 'CURRENCY', 'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation', "TYPE"]]
 
 
 def process_val(close, asset_currency, asset_min_buy, decimalisation):
     return pow(10, -decimalisation) * (asset_min_buy or 1) * to_eur(str(close) + ' ' + asset_currency)
 
 
-def get_all_assets_quote(assets, start, end, stock):
+def get_all_assets_quote(assets, start, end):
     asset_id = assets['ASSET_DATABASE_ID'][0]
-#     asset_name = assets['LABEL'][0]
     asset_currency = assets['CURRENCY'][0]
     asset_min_buy = assets['MIN_BUY_AMOUNT'][0]
     asset_decima = assets['asset_fund_info_decimalisation'][0]
@@ -58,8 +57,8 @@ def choose_from(start, end, nb, stock):
     ids = get_assets_ids(start)
     try:
         total_quote = pd.read_csv("all_quotes.csv", index_col=0)
-    except FileNotFoundError: 
-        total_quote = get_all_assets_quote(ids, start, end, stock)
+    except FileNotFoundError:
+        total_quote = get_all_assets_quote(ids, start, end)
         total_quote.to_csv("all_quotes.csv")
     best_ids = []
     # corr_table = total_quote.corr()
@@ -85,5 +84,44 @@ def choose_from(start, end, nb, stock):
     df = post_operations([12], aaa, start, end)
     df = df.sort_values("Sharpe", ascending=False)
     best_ids = df.reset_index()['index'][:nb].to_list()
-    
+
     return best_ids
+
+
+def get_quote_matrixes(start, end):
+    try:
+        all_closes = pd.read_csv("all_closes.csv", index_col=0)
+        all_returns = pd.read_csv("all_returns.csv", index_col=0)
+        return (all_closes, all_returns)
+    except FileNotFoundError:
+        assets = get_assets_ids(start)
+        cur = assets.values[0]
+        all_assets = get_quote(cur[0], start, end)
+        close_matrix = all_assets[['close']].set_index(all_assets.date)
+        close_matrix['close'] = close_matrix['close'].apply(
+            lambda x: process_val(x, cur[1], cur[2], cur[3]))
+        close_matrix.columns = ['{}'.format(cur[0])]
+        return_matrix = all_assets[['return']].set_index(all_assets.date)
+        return_matrix.columns = ['{}'.format(cur[0])]
+        print(close_matrix)
+        for i in range(1, len(assets)):
+            cur = assets.values[i]
+            all_assets = get_quote(cur[0], start, end)
+            if 'close' in all_assets:
+                cur_close = all_assets[['close']].set_index(all_assets.date)
+                cur_close['close'] = cur_close['close'].apply(
+                    lambda x: process_val(x, cur[1], cur[2], cur[3]))
+                cur_close.columns = ['{}'.format(cur[0])]
+                close_matrix = pd.concat(
+                    [close_matrix, cur_close], axis=1, sort=False)
+            if 'return' in all_assets:
+                cur_return = all_assets[['return']].set_index(all_assets.date)
+                cur_return.columns = ['{}'.format(cur[0])]
+                return_matrix = pd.concat(
+                    [return_matrix, cur_return], axis=1, sort=False)
+
+        all_closes = close_matrix.sort_index().fillna(method='pad')
+        all_returns = return_matrix.sort_index().fillna(method='pad')
+        all_closes.to_csv("all_closes.csv")
+        all_returns.to_csv("all_returns.csv")
+        return (all_closes, all_returns)
