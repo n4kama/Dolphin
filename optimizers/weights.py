@@ -58,7 +58,7 @@ def minimize_negative_sharpe(weights, asset_ids, portefolio_id, portefolio):
     sharp = post_operations([12], [portefolio_id],
                             start_period, end_period).values[0, 0]
 
-    print(sharp)
+    # print(sharp)
     return -sharp
 
 
@@ -142,20 +142,24 @@ def pso_portfolio(asset_ids):
     portefolio = get_epita_portfolio()
     nb_assets = len(asset_ids)
 
-    def constraints_list(x, asset_ids, c, d):
-        res = [np.sum(x) - 1]
-        lb = [rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
-        ub = [0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
-        res.append(lb[0])
-        res.append(ub[0])
-        return res
-
-    constraints = constraints_list
+    # def constraints_list(x, asset_ids, c, d):
+    #     res = [np.sum(x) - 1]
+    #     lb = [rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
+    #     ub = [0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
+    #     res.append(lb[0])
+    #     res.append(ub[0])
+    #     return res
+    res = [lambda x, assets_ids, c, d: np.sum(x) - 1]
+    lb = [lambda x, assets_ids, c, d: rend_calc(asset_ids, x, i) - 0.1 for i in range(len(asset_ids))]
+    ub = [lambda x, assets_ids, c, d: 0.01 - rend_calc(asset_ids, x, i) for i in range(len(asset_ids))]
+    res.append(lb[0])
+    res.append(ub[0])
+    constraints = res
 
     lb = [0] * nb_assets
     ub = [1] * nb_assets
 
-    xopt, fopt = pso(minimize_negative_sharpe, lb, ub, f_ieqcons=constraints, args=(
+    xopt, fopt = pso(minimize_negative_sharpe, lb, ub, ieqcons=constraints, args=(
         asset_ids, portefolio_id, portefolio), debug=True)
     print(xopt)
     optimal_sharpe_arr = xopt * 100000
