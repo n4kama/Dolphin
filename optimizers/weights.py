@@ -111,7 +111,8 @@ def min_func(weights, asset_ids, portefolio_id, portefolio):
 
     vrs_df = get_v_r_s()
     returns = vrs_df.loc[asset_ids, :].Rendement.values
-    volas = np.sqrt(np.dot(weights.T, np.dot(np.cov(np.log(returns)), weights)))
+    volas = np.sqrt(np.dot(weights.T, np.dot(
+        np.cov(np.log(returns)), weights)))
     sharpes = vrs_df.Sharpe.values
     sharpe = ((np.dot(returns, weights) - 0.05) / volas)
     print(sharpe)
@@ -266,3 +267,63 @@ def opti_pso_portfolio(asset_ids):
     print("sharp of ref =", post_operations(
         [12], [2201], start_period, end_period).values[0, 0])
     return np.array(optimal_sharpe_arr)
+
+
+def wrap_optimise(assets_ids):
+    data = pd.read_csv("all_returns.csv").fillna(method='bfill')
+    stock_counter = 1
+    return_matrix = []
+    cov_input = []
+
+    for i in assets_ids:
+        avg_return = data[str(i)].values.mean()
+        return_matrix.append(avg_return)
+        cov_input.append(data[str(i)].tolist())
+
+    return_matrix = np.matrix(return_matrix)
+    cov_input = np.matrix(cov_input)
+    cov_matrix = np.cov(cov_input)
+
+    return opti_portfolio(assets_ids, return_matrix, cov_matrix)
+
+
+def opti_portfolio(asset_ids, return_matrix, cov_matrix):
+    """
+    Optimize the number of each asserts in the portfolio
+
+    The asserts themselves cannot be changed
+
+    Parameters
+    ----------  
+    assets : array
+        Assets id in the portfolio
+    """
+
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+    nb_assets = len(asset_ids)
+
+    lb = [0.01] * nb_assets
+    ub = [0.1] * nb_assets
+
+    constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1]
+
+    xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=constraints, args=(
+        asset_ids, return_matrix, cov_matrix), debug=True, swarmsize=10, maxiter=3)
+
+    print(xopt)
+    optimal_sharpe_arr = xopt
+    return np.array(optimal_sharpe_arr)
+
+
+def opti_min_func(weights, assets_id, return_matrix, cov_matrix):
+    """
+    Function to calculate Sharpe ratio
+    """
+    weights = [w / sum(weights) for w in weights]
+    weights = np.matrix(weights)
+    port_return = np.round(np.sum(weights * return_matrix.T) * 1274, 2)/5
+    port_volacity = np.round(
+        np.sqrt(weights * cov_matrix * weights.T) * np.sqrt(1274), 2)/np.sqrt(5)
+    sharpe_ratio = (port_return - 2.5) / float(port_volacity)
+    return - sharpe_ratio
