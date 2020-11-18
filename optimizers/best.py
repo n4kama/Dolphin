@@ -1,6 +1,6 @@
 from DolphinApi.config import *
 from optimizers.reduce import choose_from
-from optimizers.weights import neo_opti_portfolio, pso_portfolio, opti_pso_portfolio
+from optimizers.weights import neo_opti_portfolio, pso_portfolio, opti_pso_portfolio, wrap_optimise
 from optimizers.utils import *
 
 import numpy as np
@@ -17,6 +17,8 @@ def best_sharper(type, nb):
         stock_part = pso_portfolio(stock_ids)
     if(type == "opti"):
         stock_part = opti_pso_portfolio(stock_ids)
+    if(type == "wrap"):
+        stock_part = wrap_optimise(stock_ids)
     elif(type == "neo"):
         stock_part = neo_opti_portfolio(stock_ids)
     else:
@@ -27,6 +29,8 @@ def best_sharper(type, nb):
         fund_part = pso_portfolio(fund_ids)
     if(type == "opti"):
         fund_part = opti_pso_portfolio(fund_ids)
+    if(type == "wrap"):
+        fund_part = wrap_optimise(fund_ids)
     elif(type == "neo"):
         fund_part = neo_opti_portfolio(fund_ids)
     else:
@@ -35,8 +39,9 @@ def best_sharper(type, nb):
     print("GATHER ALL")
     stock_part = stock_part * 0.51
     fund_part = fund_part * 0.49
-    final_part = np.concatenate((stock_part, fund_part))
+    final_part = np.concatenate((stock_part, fund_part)) * 100000
     asset_ids = np.concatenate((stock_ids, fund_ids))
+    # ne pas oublier de recalculer les poids en fonction du min_buy
     assets_dataframe = pd.DataFrame(data={'asset_id': asset_ids, 'quantities': final_part})
     print(assets_dataframe)
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
