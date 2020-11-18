@@ -121,13 +121,6 @@ def min_func(weights, asset_ids, portefolio_id, portefolio):
     return sharpe
 
 
-def get_type(id_):
-    data = api.get(
-        'asset?columns=TYPE&columns=ASSET_DATABASE_ID&date={}'.format(start_period))
-    asset = convert_type(pd.read_json(data))
-    return asset[asset['ASSET_DATABASE_ID'] == id_].values[0, 0]
-
-
 def is_fund_or_etf_or_index(x, asset_ids):
     res = 0
     for i, id_ in enumerate(asset_ids):
@@ -269,8 +262,9 @@ def opti_pso_portfolio(asset_ids):
     return np.array(optimal_sharpe_arr)
 
 
-def wrap_optimise(assets_ids):
-    data = pd.read_csv("all_returns.csv").fillna(method='bfill')
+def wrap_optimise(assets_ids, fast):
+    data = get_quote_matrixes(start_period, end_period)[
+        1].fillna(method='bfill')
     stock_counter = 1
     return_matrix = []
     cov_input = []
@@ -284,10 +278,10 @@ def wrap_optimise(assets_ids):
     cov_input = np.matrix(cov_input)
     cov_matrix = np.cov(cov_input)
 
-    return opti_portfolio(assets_ids, return_matrix, cov_matrix)
+    return opti_portfolio(assets_ids, return_matrix, cov_matrix, fast)
 
 
-def opti_portfolio(asset_ids, return_matrix, cov_matrix):
+def opti_portfolio(asset_ids, return_matrix, cov_matrix, fast):
     """
     Optimize the number of each asserts in the portfolio
 
@@ -303,13 +297,18 @@ def opti_portfolio(asset_ids, return_matrix, cov_matrix):
     portefolio = get_epita_portfolio()
     nb_assets = len(asset_ids)
 
-    lb = [0.01] * nb_assets
-    ub = [0.1] * nb_assets
+    lb = [0] * nb_assets
+    lb2 = [0.01] * nb_assets
+    ub = [0.0999] * nb_assets
 
     constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1]
 
-    xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=constraints, args=(
-        asset_ids, return_matrix, cov_matrix), debug=True, swarmsize=10, maxiter=3)
+    if(not fast):
+        xopt, fopt = pso(opti_min_func, lb2, ub, ieqcons=constraints, args=(
+            asset_ids, return_matrix, cov_matrix), debug=True, swarmsize=400, maxiter=30)
+    else:
+        xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=constraints, args=(
+            asset_ids, return_matrix, cov_matrix), debug=False, swarmsize=100, maxiter=10, minstep=1e-4)
 
     print(xopt)
     optimal_sharpe_arr = xopt

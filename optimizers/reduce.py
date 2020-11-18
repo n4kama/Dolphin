@@ -1,5 +1,4 @@
 from .utils import *
-import pandas as pd
 
 
 def get_assets_ids(date):
@@ -38,7 +37,6 @@ def get_all_assets_quote(assets, start, end):
         if (not stock and assets['ASSET_DATABASE_ID'][i] == "STOCK"):
             continue
         asset_id = assets['ASSET_DATABASE_ID'][i]
-#         asset_name = assets['LABEL'][i]
         asset_currency = assets['CURRENCY'][i]
         asset_min_buy = assets['MIN_BUY_AMOUNT'][i]
         asset_decima = assets['asset_fund_info_decimalisation'][i]
@@ -88,40 +86,7 @@ def choose_from(start, end, nb, stock):
     return best_ids
 
 
-def get_quote_matrixes(start, end):
-    try:
-        all_closes = pd.read_csv("all_closes.csv", index_col=0)
-        all_returns = pd.read_csv("all_returns.csv", index_col=0)
-        return (all_closes, all_returns)
-    except FileNotFoundError:
-        assets = get_assets_ids(start)
-        cur = assets.values[0]
-        all_assets = get_quote(cur[0], start, end)
-        close_matrix = all_assets[['close']].set_index(all_assets.date)
-        close_matrix['close'] = close_matrix['close'].apply(
-            lambda x: process_val(x, cur[1], cur[2], cur[3]))
-        close_matrix.columns = ['{}'.format(cur[0])]
-        return_matrix = all_assets[['return']].set_index(all_assets.date)
-        return_matrix.columns = ['{}'.format(cur[0])]
-        print(close_matrix)
-        for i in range(1, len(assets)):
-            cur = assets.values[i]
-            all_assets = get_quote(cur[0], start, end)
-            if 'close' in all_assets:
-                cur_close = all_assets[['close']].set_index(all_assets.date)
-                cur_close['close'] = cur_close['close'].apply(
-                    lambda x: process_val(x, cur[1], cur[2], cur[3]))
-                cur_close.columns = ['{}'.format(cur[0])]
-                close_matrix = pd.concat(
-                    [close_matrix, cur_close], axis=1, sort=False)
-            if 'return' in all_assets:
-                cur_return = all_assets[['return']].set_index(all_assets.date)
-                cur_return.columns = ['{}'.format(cur[0])]
-                return_matrix = pd.concat(
-                    [return_matrix, cur_return], axis=1, sort=False)
-
-        all_closes = close_matrix.sort_index().fillna(method='pad')
-        all_returns = return_matrix.sort_index().fillna(method='pad')
-        all_closes.to_csv("all_closes.csv")
-        all_returns.to_csv("all_returns.csv")
-        return (all_closes, all_returns)
+def select_type(type_list):
+    table_type = get_type_table()
+    table_type = table_type[table_type.TYPE.isin(type_list)].ASSET_DATABASE_ID
+    return table_type.values
