@@ -299,16 +299,16 @@ def opti_portfolio(asset_ids, return_matrix, cov_matrix, fast):
 
     lb = [0] * nb_assets
     lb2 = [0.01] * nb_assets
-    ub = [0.0999] * nb_assets
+    ub = [0.1] * nb_assets
 
     constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1]
 
     if(not fast):
         xopt, fopt = pso(opti_min_func, lb2, ub, ieqcons=constraints, args=(
-            asset_ids, return_matrix, cov_matrix), debug=True, swarmsize=400, maxiter=30)
+            asset_ids, return_matrix, cov_matrix), swarmsize=1000, maxiter=30)
     else:
         xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=constraints, args=(
-            asset_ids, return_matrix, cov_matrix), debug=False, swarmsize=100, maxiter=10, minstep=1e-4)
+            asset_ids, return_matrix, cov_matrix), debug=False, swarmsize=100, maxiter=30, minstep=1e-4)
 
     print(xopt)
     optimal_sharpe_arr = xopt
@@ -324,5 +324,55 @@ def opti_min_func(weights, assets_id, return_matrix, cov_matrix):
     port_return = np.round(np.sum(weights * return_matrix.T) * 1274, 2)/5
     port_volacity = np.round(
         np.sqrt(weights * cov_matrix * weights.T) * np.sqrt(1274), 2)/np.sqrt(5)
-    sharpe_ratio = (port_return - 2.5) / float(port_volacity)
+    sharpe_ratio = (port_return - 0.05) / float(port_volacity)
     return - sharpe_ratio
+
+
+def stock_constraint(x, assets_ids):
+    complete_price = 0
+    stocks_price = 0
+    for i, id_ in enumerate(assets_ids):
+        cur_price = get_price(id_) * 10000 * x[i]
+        if(get_type(id_) == "STOCK"):
+            stocks_price += cur_price
+        complete_price += cur_price
+    return stocks_price / complete_price
+
+
+def together_opti(assets_ids, fast):
+    data = get_quote_matrixes(start_period, end_period)[
+        1].fillna(method='bfill')
+    stock_counter = 1
+    return_matrix = []
+    cov_input = []
+
+    for i in assets_ids:
+        avg_return = data[str(i)].values.mean()
+        return_matrix.append(avg_return)
+        cov_input.append(data[str(i)].tolist())
+
+    return_matrix = np.matrix(return_matrix)
+    cov_input = np.matrix(cov_input)
+    cov_matrix = np.cov(cov_input)
+
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+    nb_assets = len(assets_ids)
+
+    lb = [0] * nb_assets
+    lb2 = [0.01] * nb_assets
+    ub = [0.1] * nb_assets
+
+    constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1,
+                   lambda x, assets_ids, c, d: stock_constraint(x, assets_ids) - 0.51]
+
+    if(not fast):
+        xopt, fopt = pso(opti_min_func, lb2, ub, ieqcons=constraints, args=(
+            assets_ids, return_matrix, cov_matrix), debug=True, swarmsize=1000, maxiter=30)
+    else:
+        xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=[constraints[0]], args=(
+            assets_ids, return_matrix, cov_matrix), debug=False, swarmsize=100, maxiter=30, minstep=1e-4)
+
+    print(xopt)
+    optimal_sharpe_arr = xopt
+    return np.array(optimal_sharpe_arr)

@@ -88,9 +88,9 @@ def post_operations(ratios, ids, start, end, bench=None, frequency=None):
 
     payload = {'ratio': ratios,
                'asset': ids,
-               'startDate': [datetime.strptime(start, "%Y-%m-%d").isoformat()],
-               'endDate': [datetime.strptime(end, "%Y-%m-%d").isoformat()],
-               'benchmark': bench,
+               'start_date': start,
+               'end_date': end,
+               'bench': bench,
                'frequency': frequency}
     data = api.post('ratio/invoke', payload)
     data = pd.read_json(data)
@@ -168,7 +168,7 @@ def get_assets_ids(date):
     assets['MIN_BUY_AMOUNT'] = assets['MIN_BUY_AMOUNT'].fillna(value=1)
     assets['asset_fund_info_decimalisation'] = assets['asset_fund_info_decimalisation'].fillna(
         value=0)
-    return assets[['ASSET_DATABASE_ID', 'CURRENCY', 'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation', "TYPE"]]
+    return assets[['ASSET_DATABASE_ID', 'CURRENCY', 'MIN_BUY_AMOUNT', 'asset_fund_info_decimalisation', "TYPE", "LAST_CLOSE_VALUE_IN_CURR"]]
 
 
 def get_type_table():
@@ -184,6 +184,16 @@ def get_type_table():
 def get_type(id_):
     type_table = get_type_table()
     return type_table[type_table['ASSET_DATABASE_ID'] == id_].values[0, 0]
+
+
+def get_price_table():
+    price_table = get_quote_matrixes(start_period, end_period)[0].iloc[0, :]
+    return price_table
+
+
+def get_price(id_):
+    price_table = get_price_table()
+    return price_table[str(id_)].tolist()
 
 
 def get_quote_matrixes(start, end):

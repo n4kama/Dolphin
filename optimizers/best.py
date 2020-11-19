@@ -1,6 +1,6 @@
 from DolphinApi.config import *
 from optimizers.reduce import choose_from, select_type
-from optimizers.weights import neo_opti_portfolio, pso_portfolio, opti_pso_portfolio, wrap_optimise
+from optimizers.weights import neo_opti_portfolio, pso_portfolio, opti_pso_portfolio, wrap_optimise, together_opti
 from optimizers.utils import *
 
 import numpy as np
@@ -77,7 +77,7 @@ def best_sharper(type, nb):
         [12], [portefolio_id], start_period, end_period).values[0, 0])
 
 
-def to_step_best_sharper():
+def two_step_best_sharper():
     stock_ids = select_type(["STOCK"])
     fund_ids = select_type(["ETF FUND", "FUND", "INDEX"])
     portefolio_id = get_epita_portfolio_id()
@@ -89,8 +89,6 @@ def to_step_best_sharper():
                       columns=["ids", "part"]).sort_values(by="part").values
     stock_part = df[:, 1][::-1][:15]
     stock_ids = df[:, 0][::-1][:15].astype(int)
-    removable_ids = stock_part < 0.01
-    stock_part[removable_ids] = 0
     stock_part = wrap_optimise(stock_ids, False)
 
     print("NOT STOCKS")
@@ -99,8 +97,6 @@ def to_step_best_sharper():
                       columns=["ids", "part"]).sort_values(by="part").values
     fund_part = df[:, 1][::-1][:15]
     fund_ids = df[:, 0][::-1][:15].astype(int)
-    removable_ids = fund_part < 0.01
-    fund_part[removable_ids] = 0
     fund_part = wrap_optimise(fund_ids, False)
 
     print("GATHER ALL")
@@ -110,6 +106,7 @@ def to_step_best_sharper():
     final_part = np.concatenate((stock_part, fund_part))
     asset_ids = np.concatenate((stock_ids, fund_ids))
 
+    print(final_part)
     assets_dataframe = pd.DataFrame(
         data={'asset_id': asset_ids, 'quantities': final_part * 1000000})
 
@@ -119,3 +116,63 @@ def to_step_best_sharper():
                     end_period).values[0, 0]
     print("sharp of portfolio =", post_operations(
         [12], [portefolio_id], start_period, end_period).values[0, 0])
+
+    return final_part
+
+def stock_constraint(x, assets_ids):
+    complete_price = 0
+    stocks_price = 0
+    for i, id_ in enumerate(assets_ids):
+        cur_price = get_price(id_) * 10000 * x[i]
+        if(get_type(id_) == "STOCK"):
+            stocks_price += cur_price
+        complete_price += cur_price
+    return stocks_price / complete_price
+
+def check_constraints(assets_ids, x):
+    print("stock part superior to 50%:", stock_constraint(x, assets_ids) > 0.5)
+    print("%nav between 0.01 and 0.1:", np.all(x < 0.1) and np.all(x > 0.01))
+    print("assets between 15 and 40:", len(assets_ids) > 14 and len(assets_ids) < 41)
+
+
+def sharping_together():
+    stock_ids = select_type(["STOCK"])
+    fund_ids = select_type(["ETF FUND", "FUND", "INDEX"])
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+
+    print("STOCKS")
+    stock_part = together_opti(stock_ids, True)
+    df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
+                      columns=["ids", "part"]).sort_values(by="part").values
+    stock_ids = df[:, 0][::-1][:40].astype(int)
+
+    print("NOT STOCKS")
+    fund_part = together_opti(fund_ids, True)
+    df = pd.DataFrame(np.stack((fund_ids, fund_part), axis=-1),
+                      columns=["ids", "part"]).sort_values(by="part").values
+    fund_ids = df[:, 0][::-1][:40].astype(int)
+
+    print("REDUCE PART")
+    reduced_ids = np.concatenate((stock_ids, fund_ids))
+    reduced_part = together_opti(reduced_ids, True)
+    df = pd.DataFrame(np.stack((reduced_ids, reduced_part), axis=-1),
+                      columns=["ids", "part"]).sort_values(by="part").values
+    final_ids = df[:, 0][::-1][:40].astype(int)
+
+    print("COMPUTE BEST")
+    final_part = together_opti(final_ids, False)
+
+    check_constraints(final_ids, final_part)
+
+    assets_dataframe = pd.DataFrame(
+        data={'asset_id': final_ids, 'quantities': final_part * 1000000})
+
+    print(assets_dataframe)
+    put_portfolio(portefolio_id, portefolio, assets_dataframe)
+    post_operations([12], [portefolio_id], start_period,
+                    end_period).values[0, 0]
+    print("sharp of portfolio =", post_operations(
+        [12], [portefolio_id], start_period, end_period).values[0, 0])
+
+    return final_part
