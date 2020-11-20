@@ -48,33 +48,33 @@ def check_constraints(assets_ids, x):
         assets_ids) > 14 and len(assets_ids) < 41)
 
 
-def sharping_together():
+def sharping_together(algo_opti):
     stock_ids = select_type(["STOCK"])
     fund_ids = select_type(["ETF FUND", "FUND", "INDEX"])
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
 
     print("STOCKS")
-    stock_part = together_opti(stock_ids, True)
+    stock_part = algo_opti(stock_ids, True)
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part").values
     stock_ids = df[:, 0][::-1][:40].astype(int)
 
     print("NOT STOCKS")
-    fund_part = together_opti(fund_ids, True)
+    fund_part = algo_opti(fund_ids, True)
     df = pd.DataFrame(np.stack((fund_ids, fund_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part").values
     fund_ids = df[:, 0][::-1][:0].astype(int)  # replace 100 by 5 at worst case
 
     print("REDUCE PART")
     reduced_ids = np.concatenate((stock_ids, fund_ids))
-    reduced_part = together_opti(reduced_ids, True)
+    reduced_part = algo_opti(reduced_ids, True)
     df = pd.DataFrame(np.stack((reduced_ids, reduced_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part").values
     final_ids = df[:, 0][::-1][:15].astype(int)
 
     print("COMPUTE BEST")
-    final_part = together_opti(final_ids, False)
+    final_part = algo_opti(final_ids, False)
 
     check_constraints(final_ids, final_part)
 
@@ -89,3 +89,11 @@ def sharping_together():
         [12], [portefolio_id], start_period, end_period).values[0, 0])
 
     return final_part
+
+def get_best_weigth(algo):
+    if(algo == "scipy"):
+        return sharping_together(scipy_optimise)
+    else if (algo == "pso"):
+        return sharping_together(pso_optimise)
+    else:
+        print("choose an algorithm : 'pso' or 'scipy'")
