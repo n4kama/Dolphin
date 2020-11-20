@@ -2,6 +2,7 @@ from DolphinApi.config import *
 from optimizers.reduce import select_type
 from optimizers.weights import pso_optimise, scipy_optimise
 from optimizers.portfolio import *
+from optimizers.utils import *
 
 import numpy as np
 import pandas as pd
@@ -89,6 +90,7 @@ def sharping_together(algo_opti):
         [12], [portefolio_id], start_period, end_period).values[0, 0])
 
     return final_part
+
 
 def get_best_weigth(algo):
     if(algo == "scipy"):
