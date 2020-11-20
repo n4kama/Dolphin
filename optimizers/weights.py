@@ -102,6 +102,11 @@ def scipy_optimise(assets_ids, fast):
     fast_rangeb = tuple((0, 0.1) for i in range(nb_assets))
     rangeb = tuple((0.01, 0.1) for i in range(nb_assets))
 
+    # prices = get_prices(assets_ids)
+    # stocks = get_types_ids(assets_ids, ["STOCK"])
+
+    # constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1},{'type': 'eq', 'fun': lambda x: nav_constraint(x, prices, np.array(stocks).astype(int)) - 0.5})
+
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1},)
 
     if(not fast):
