@@ -6,6 +6,7 @@ import scipy.optimize as optimize
 
 from DolphinApi.config import *
 from optimizers.tables import *
+from optimizers.portfolio import *
 
 
 def stock_constraint(x, price_mat, stock_ids):

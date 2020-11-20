@@ -53,6 +53,12 @@ def get_types_ids(ids, types):
     return [i for i in ids if type_table[type_table['ASSET_DATABASE_ID'] == i].values[0, 1] in types]
 
 
+def select_type(type_list):
+    table_type = get_type_table()
+    table_type = table_type[table_type.TYPE.isin(type_list)].ASSET_DATABASE_ID
+    return table_type.values
+
+
 def get_price(id_):
     price_table = get_price_table()
     return price_table[price_table['ASSET_DATABASE_ID'] == id_].values[0, 1]

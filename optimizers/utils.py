@@ -22,13 +22,13 @@ def convert_type(df):
                 convert_values.append(np.nan)
                 continue
             elt_type, elt_value = elt['type'], elt['value']
-            elif elt_type in ['asset', 'int32', 'int64']:
+            if elt_type in ['asset', 'int32', 'int64']:
                 elt_value = int(elt_value)
             elif elt_type in ['double', 'percent']:
                 elt_value = float(elt_value.replace(',', '.'))
             elif elt_type == 'date':
                 elt_value = datetime.strptime(elt_value, '%Y-%m-%d').date()
-            if elt_type == 'currency_value':
+            elif elt_type == 'currency_value':
                 elt_value = to_eur(elt_value)
             elif elt_type == 'boolean':
                 elt_value = json.loads(elt_value)

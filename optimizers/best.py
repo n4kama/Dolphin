@@ -1,8 +1,9 @@
 from DolphinApi.config import *
-from optimizers.reduce import select_type
 from optimizers.weights import pso_optimise, scipy_optimise
+
 from optimizers.portfolio import *
 from optimizers.utils import *
+from optimizers.tables import *
 
 import numpy as np
 import pandas as pd
@@ -95,7 +96,7 @@ def sharping_together(algo_opti):
 def get_best_weigth(algo):
     if(algo == "scipy"):
         return sharping_together(scipy_optimise)
-    else if (algo == "pso"):
+    elif (algo == "pso"):
         return sharping_together(pso_optimise)
     else:
         print("choose an algorithm : 'pso' or 'scipy'")
