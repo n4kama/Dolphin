@@ -332,7 +332,7 @@ def stock_constraint(x, assets_ids):
     complete_price = 0
     stocks_price = 0
     for i, id_ in enumerate(assets_ids):
-        cur_price = get_price(id_) * 10000 * x[i]
+        cur_price = get_price(id_) * x[i]
         if(get_type(id_) == "STOCK"):
             stocks_price += cur_price
         complete_price += cur_price

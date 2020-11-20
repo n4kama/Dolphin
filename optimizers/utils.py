@@ -183,7 +183,7 @@ def get_type_table():
 
 def get_type(id_):
     type_table = get_type_table()
-    return type_table[type_table['ASSET_DATABASE_ID'] == id_].values[0, 0]
+    return type_table[type_table['ASSET_DATABASE_ID'] == id_].values[0, 1]
 
 
 def get_price_table():
