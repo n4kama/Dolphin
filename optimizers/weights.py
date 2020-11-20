@@ -31,7 +31,6 @@ def opti_min_func(weights, assets_id, return_matrix, cov_matrix):
     port_volacity = np.round(
         np.sqrt(weights * cov_matrix * weights.T) * np.sqrt(1274), 2)/np.sqrt(5)
     sharpe_ratio = (port_return - 0.05) / float(port_volacity)
-    print(sharpe_ratio)
     return - sharpe_ratio
 
 
