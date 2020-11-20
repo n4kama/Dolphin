@@ -1,0 +1,10 @@
+,id,type,name,is_benchmark_needed,is_percent
+0,11,Ratio,Correlation,True,False
+1,7,Ratio,Exposition action,False,True
+2,15,Ratio,Exposition action,False,True
+3,8,Ratio,RDT,False,True
+4,13,Ratio,Rendement,False,True
+5,9,Ratio,Rendement_annualise,False,True
+6,12,Ratio,Sharpe,False,False
+7,14,Ratio,VaR historique,False,True
+8,10,Ratio,Volatilite,False,True
