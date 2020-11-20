@@ -99,7 +99,7 @@ def sharping_stocks(algo_opti):
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
 
-    print("STOCKS")
+    print("REDUCE")
     stock_part = algo_opti(stock_ids, True)
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part").values
