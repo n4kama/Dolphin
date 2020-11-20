@@ -50,7 +50,7 @@ def get_types(ids):
 
 def get_types_ids(ids, types):
     type_table = get_type_table()
-    return [i for i in ids if type_table[type_table['ASSET_DATABASE_ID'] == i].values[0, 1] in types]
+    return [i for i, id_ in enumerate(ids) if type_table[type_table['ASSET_DATABASE_ID'] == id_].values[0, 1] in types]
 
 
 def select_type(type_list):
