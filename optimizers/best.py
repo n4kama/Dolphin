@@ -46,8 +46,8 @@ def post_operations(ratios, ids, start, end, bench=None, frequency=None):
 def check_constraints(assets_ids, x):
     prices = get_prices(assets_ids)
     stocks = get_types_ids(assets_ids, ["STOCK"])
-    print("stock part %:", stock_constraint_b(x, prices, np.array(stocks).astype(int))*100)
-    print("%nav between 0.01 and 0.1:", stock_constraint_b(x, prices, np.array(stocks).astype(int)))
+    print("stock part %:", stock_constraint(x, prices, np.array(stocks).astype(int))*100)
+    print("%nav between 0.01 and 0.1:", nav_constraint(x, prices, np.array(stocks).astype(int)))
     print("assets between 15 and 40:", len(assets_ids) > 14 and len(assets_ids) < 41)
 
 
