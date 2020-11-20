@@ -14,6 +14,12 @@ def stock_constraint(x, price_mat, stock_ids):
     stocks_price = np.dot(x[stock_ids], price_mat[stock_ids])
     return stocks_price / complete_price
 
+def nav_constraint(x, price_mat, stock_ids):
+    complete_price = np.dot(x, price_mat)
+    stocks_price = x[stock_ids] * price_mat[stock_ids]
+    nav_percent = stocks_price / complete_price
+    return np.all(nav_percent) < 0.1 and np.all(nav_percent) > 0.01
+
 
 def opti_min_func(weights, assets_id, return_matrix, cov_matrix):
     """
@@ -25,6 +31,7 @@ def opti_min_func(weights, assets_id, return_matrix, cov_matrix):
     port_volacity = np.round(
         np.sqrt(weights * cov_matrix * weights.T) * np.sqrt(1274), 2)/np.sqrt(5)
     sharpe_ratio = (port_return - 0.05) / float(port_volacity)
+    print(sharpe_ratio)
     return - sharpe_ratio
 
 
@@ -56,7 +63,8 @@ def pso_optimise(assets_ids, fast):
     stocks = get_types_ids(assets_ids, ["STOCK"])
 
     constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1,
-                   lambda x, assets_ids, c, d: stock_constraint(x, prices, np.array(stocks).astype(int)) - 0.51]
+                   lambda x, assets_ids, c, d: stock_constraint(x, prices, np.array(stocks).astype(int)) - 0.51,
+                   lambda x, assets_ids, c, d: stock_constraint(x, prices, np.array(stocks).astype(int)) - 0.5]
 
     if(not fast):
         xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=[constraints[0]], args=(
