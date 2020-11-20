@@ -64,7 +64,7 @@ def pso_optimise(assets_ids, fast):
 
     constraints = [lambda x, assets_ids, c, d: np.sum(x) - 1,
                    lambda x, assets_ids, c, d: stock_constraint(x, prices, np.array(stocks).astype(int)) - 0.51,
-                   lambda x, assets_ids, c, d: stock_constraint(x, prices, np.array(stocks).astype(int)) - 0.5]
+                   lambda x, assets_ids, c, d: nav_constraint(x, prices, np.array(stocks).astype(int)) - 0.5]
 
     if(not fast):
         xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=[constraints[0]], args=(
