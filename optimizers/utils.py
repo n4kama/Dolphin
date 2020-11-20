@@ -1,9 +1,6 @@
 from DolphinApi.DolphinApi import DolphinApi, api
 from DolphinApi.config import *
 
-from portfolio import *
-from tables import *
-
 from datetime import datetime
 import pandas as pd
 import numpy as np
