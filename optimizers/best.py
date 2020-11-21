@@ -58,8 +58,8 @@ def post_operations(ratios, ids, start, end, bench=None, frequency=None):
 
 def check_constraints(assets_ids, x):
     stocks = get_types_ids(assets_ids, ["STOCK"])
-    print(assets_ids)
-    print(stocks)
+    print("assets ids tested: ", assets_ids)
+    print("stocks are numbers: ", stocks)
     print("stock part %:", np.sum(x[stocks]) * 100 / np.sum(x))
     print("%nav between 0.01 and 0.1:", np.all(x <= 0.1) and np.all(x >= 0.01))
     print("assets between 15 and 40:", len(
@@ -110,6 +110,7 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
     ffinal_ids = df[:, 0][:16].astype(int)
 
     print("COMPUTE BEST FUNDS")
+    print("computed ids:", ffinal_ids)
     ffinal_part = algo_opti(ffinal_ids, False)
     print("fund part:", ffinal_part)
 
@@ -125,13 +126,7 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
     assets_dataframe = pd.DataFrame(
         data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
 
-    print(assets_dataframe)
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
-    post_operations([12], [portefolio_id], start_period,
-                    end_period).values[0, 0]
-    print("sharp of portfolio =", post_operations(
-        [12, 13], [portefolio_id], start_period, end_period).values[0, 0])
-
     return assets_dataframe
 
 
@@ -140,7 +135,7 @@ def sharping_stocks(algo_opti):
     sharps = post_operations([12], stock_ids, start_period, end_period)
     sharps = post_operations([12], stock_ids, start_period, end_period)
     stock_ids = sharps.sort_values(
-        by="Sharpe", ascending=False).index[:18].tolist()
+        by="Sharpe", ascending=False).index[:30].tolist()
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
 
@@ -152,6 +147,7 @@ def sharping_stocks(algo_opti):
     final_ids = df[:, 0][:16].astype(int)
 
     print("COMPUTE BEST")
+    print("computed ids:", final_ids)
     final_part = algo_opti(final_ids, False)
     prices = np.array(get_prices(final_ids))
 
@@ -160,13 +156,7 @@ def sharping_stocks(algo_opti):
     assets_dataframe = pd.DataFrame(
         data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
 
-    print(assets_dataframe)
     put_portfolio(portefolio_id, portefolio, assets_dataframe)
-    post_operations([12], [portefolio_id], start_period,
-                    end_period).values[0, 0]
-    print("sharp of portfolio =", post_operations(
-        [12, 13], [portefolio_id], start_period, end_period).values[0, 0])
-    print(get_epita_portfolio().values)
     return assets_dataframe
 
 
