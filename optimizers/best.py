@@ -174,6 +174,6 @@ def get_best_weigth(algo, both, stock=0.5, fund=0.5):
     else:
        if(algo == "scipy"):
             return sharping_stocks(scipy_optimise)
-        elif (algo == "pso"):
+       elif (algo == "pso"):
             return sharping_stocks(pso_optimise)
     print("choose an algorithm : 'pso' or 'scipy'")
