@@ -33,6 +33,12 @@ def get_price_table():
         return type_table
     except FileNotFoundError:
         type_table = get_assets_ids(start_period)
+        type_table = type_table[["ASSET_DATABASE_ID",
+                                 "LAST_CLOSE_VALUE_IN_CURR", "CURRENCY"]]
+        type_table["value"] = type_table["LAST_CLOSE_VALUE_IN_CURR"].astype(
+            str).str.cat(type_table["CURRENCY"].tolist(), sep=' ')
+        type_table["LAST_CLOSE_VALUE_IN_CURR"] = type_table["value"].apply(
+            to_eur).astype(float)
         type_table[["ASSET_DATABASE_ID", "LAST_CLOSE_VALUE_IN_CURR"]].to_csv(
             "price_table.csv")
         return type_table[["ASSET_DATABASE_ID", "LAST_CLOSE_VALUE_IN_CURR"]]
@@ -45,7 +51,7 @@ def get_type(id_):
 
 def get_types(ids):
     type_table = get_type_table()
-    return type_table[type_table['ASSET_DATABASE_ID'].isin(ids)].values[:, 1]
+    return np.array([type_table[type_table['ASSET_DATABASE_ID'] == id_].values[0, 1] for id_ in ids])
 
 
 def get_types_ids(ids, types):
@@ -66,7 +72,7 @@ def get_price(id_):
 
 def get_prices(ids):
     price_table = get_price_table()
-    return price_table[price_table['ASSET_DATABASE_ID'].isin(ids)].values[:, 1]
+    return np.array([price_table[price_table['ASSET_DATABASE_ID'] == id_].values[0, 1] for id_ in ids])
 
 
 def get_quote(id_, start, end):
