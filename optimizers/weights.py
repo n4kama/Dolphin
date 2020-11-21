@@ -20,7 +20,6 @@ def opti_min_func(weights, assets_id, return_matrix, cov_matrix, prices):
     port_volacity = np.round(
         np.sqrt(weights * cov_matrix * weights.T) * np.sqrt(1274), 2)/np.sqrt(5)
     sharpe_ratio = (port_return - 0.05) / float(port_volacity)
-    print(sharpe_ratio)
     return - sharpe_ratio
 
 
@@ -58,7 +57,6 @@ def pso_optimise(assets_ids, fast):
         xopt, fopt = pso(opti_min_func, lb, ub, ieqcons=constraints, args=(
             assets_ids, return_matrix, cov_matrix, prices), debug=True, swarmsize=1500, maxiter=30)
 
-    print(xopt)
     return np.array(xopt)
 
 
@@ -111,5 +109,4 @@ def scipy_optimise(assets_ids, fast):
                                  bounds=rangeb,
                                  constraints=constraints)
 
-    print(xopt)
     return np.array(xopt.x)

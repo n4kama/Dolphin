@@ -1,5 +1,5 @@
 from DolphinApi.config import *
-from optimizers.weights import pso_optimise, scipy_optimise, stock_constraint, nav_constraint
+from optimizers.weights import pso_optimise, scipy_optimise
 
 from optimizers.portfolio import *
 from optimizers.utils import *
@@ -87,13 +87,15 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
         by="Sharpe", ascending=False).index[:50].tolist()
 
     print("REDUCE STOCKS")
-    stock_part = algo_opti(stock_ids, True, False)
+    stock_part = algo_opti(stock_ids, True)
+
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
     sfinal_ids = df[:, 0][:16].astype(int)
 
     print("COMPUTE BEST STOCKS")
-    sfinal_part = algo_opti(sfinal_ids, False, False)
+    sfinal_part = algo_opti(sfinal_ids, False)
+    print("stock part:", sfinal_part)
 
     fund_ids = select_type(["FUND"]).tolist()
     sharps = post_operations([12], fund_ids, start_period, end_period)
@@ -102,17 +104,19 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
         by="Sharpe", ascending=False).index[:50].tolist()
 
     print("REDUCE FUNDS")
-    fund_part = algo_opti(fund_ids, True, False)
+    fund_part = algo_opti(fund_ids, True)
     df = pd.DataFrame(np.stack((fund_ids, fund_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
     ffinal_ids = df[:, 0][:16].astype(int)
 
     print("COMPUTE BEST FUNDS")
-    ffinal_part = algo_opti(ffinal_ids, False, False)
+    ffinal_part = algo_opti(ffinal_ids, False)
+    print("fund part:", ffinal_part)
 
     print("REDUCE PART")
     final_ids = np.concatenate((sfinal_ids, ffinal_ids))
-    final_part = np.concatenate((sfinal_part * stock_percent, ffinal_part * fund_percent))
+    final_part = np.concatenate(
+        (sfinal_part * stock_percent, ffinal_part * fund_percent))
 
     prices = np.array(get_prices(final_ids))
 
@@ -141,13 +145,14 @@ def sharping_stocks(algo_opti):
     portefolio = get_epita_portfolio()
 
     print("REDUCE")
-    stock_part = algo_opti(stock_ids, True, False)
+    stock_part = algo_opti(stock_ids, True)
+    print("stock part:", stock_part)
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
     final_ids = df[:, 0][:16].astype(int)
 
     print("COMPUTE BEST")
-    final_part = algo_opti(final_ids, False, False)
+    final_part = algo_opti(final_ids, False)
     prices = np.array(get_prices(final_ids))
 
     check_constraints(final_ids, final_part)
@@ -172,8 +177,19 @@ def get_best_weigth(algo, both, stock=0.5, fund=0.5):
         elif (algo == "pso"):
             return sharping_together(pso_optimise, stock, fund)
     else:
-       if(algo == "scipy"):
+        if(algo == "scipy"):
             return sharping_stocks(scipy_optimise)
-       elif (algo == "pso"):
+        elif (algo == "pso"):
             return sharping_stocks(pso_optimise)
     print("choose an algorithm : 'pso' or 'scipy'")
+
+
+def rate_portfolio(df):
+    portefolio = get_epita_portfolio()
+    portefolio_id = get_epita_portfolio_id()
+    put_portfolio(portefolio_id, portefolio, df)
+    post_operations([12], [portefolio_id], start_period,
+                    end_period).values[0, 0]
+    print("Sharp of portfolio =", post_operations(
+        [12], [portefolio_id], start_period, end_period).values[0, 0])
+    print("Constraint pass =", check_constraints_portfolio(df)[1])
