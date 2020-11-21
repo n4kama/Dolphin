@@ -122,6 +122,7 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
     prices = np.array(get_prices(final_ids))
 
     check_constraints(final_ids, final_part)
+    print("final weight: ", final_part)
 
     assets_dataframe = pd.DataFrame(
         data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
@@ -144,7 +145,7 @@ def sharping_stocks(algo_opti):
     print("stock part:", stock_part)
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
-    final_ids = df[:, 0][:16].astype(int)
+    final_ids = df[:, 0][:18].astype(int)
 
     print("COMPUTE BEST")
     print("computed ids:", final_ids)
@@ -152,6 +153,7 @@ def sharping_stocks(algo_opti):
     prices = np.array(get_prices(final_ids))
 
     check_constraints(final_ids, final_part)
+    print("final weight: ", final_part)
 
     assets_dataframe = pd.DataFrame(
         data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
@@ -160,7 +162,7 @@ def sharping_stocks(algo_opti):
     return assets_dataframe
 
 
-def get_best_weigth(algo, both, stock=0.5, fund=0.5):
+def get_best_weigth(algo, both, stock=0.6, fund=0.5):
     if(both):
         if(algo == "scipy"):
             return sharping_together(scipy_optimise, stock, fund)
@@ -180,6 +182,9 @@ def rate_portfolio(df):
     put_portfolio(portefolio_id, portefolio, df)
     post_operations([12], [portefolio_id], start_period,
                     end_period).values[0, 0]
+    print("//////////////////////////////////////")
     print("Sharp of portfolio =", post_operations(
         [12], [portefolio_id], start_period, end_period).values[0, 0])
     print("Constraint pass =", check_constraints_portfolio(df)[1])
+    print("//////////////////////////////////////")
+    print("Constraint weight =", check_constraints_portfolio(df)[0])

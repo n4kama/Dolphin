@@ -94,18 +94,18 @@ def scipy_optimise(assets_ids, fast):
         xopt = optimize.minimize(opti_min_func,
                                  ws,
                                  (assets_ids, return_matrix, cov_matrix, prices),
-                                 method='SLSQP',
+                                 method='TNC',
                                  options={'maxiter': 2500, 'ftol': 1e-09,
-                                          'iprint': 1, 'disp': True, 'eps': 0.01},
+                                          'iprint': 1, 'disp': True, 'eps': 0.001},
                                  bounds=fast_rangeb,
                                  constraints=constraints)
     else:
         xopt = optimize.minimize(opti_min_func,
                                  ws,
                                  (assets_ids, return_matrix, cov_matrix, prices),
-                                 method='SLSQP',
+                                 method='TNC',
                                  options={'maxiter': 1000, 'ftol': 1e-08,
-                                          'iprint': 1, 'disp': True, 'eps': 0.01},
+                                          'iprint': 1, 'disp': True, 'eps': 0.1},
                                  bounds=rangeb,
                                  constraints=constraints)
 
