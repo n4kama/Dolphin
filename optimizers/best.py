@@ -81,7 +81,7 @@ def check_constraints_portfolio(portfolio_df):
     stock_percent = np.sum(each_price[stocks_ids]) * 100 / np.sum(each_price)
 
     stock_percent_check = stock_percent > 50
-    nav_check = nav[np.logical_and(nav > 0.01, nav < 0.1)]
+    nav_check = np.logical_and(nav > 0.01, nav < 0.1)
     len_check = len(assets_ids) >= 15 and len(assets_ids) <= 40
 
     portfolio_df["close"] = prices
@@ -133,6 +133,7 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
 
     print("COMPUTE BEST STOCKS")
     sfinal_part = algo_opti(sfinal_ids, False)
+    print("basic check:", check_constraints(sfinal_ids, sfinal_part))
 
     fund_ids = select_type(["FUND"]).tolist()
     sharps = post_operations([12], fund_ids, start_period, end_period)
@@ -148,6 +149,7 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
 
     print("COMPUTE BEST FUNDS")
     ffinal_part = algo_opti(ffinal_ids, False)
+    print("basic check:", check_constraints(ffinal_ids, ffinal_part))
 
     print("REDUCE BEST")
     final_ids = np.concatenate((sfinal_ids, ffinal_ids))
@@ -210,6 +212,7 @@ def get_best_weigth(algo, both, stock=0.6, fund=0.4):
 def rate_portfolio(df):
     portefolio = get_epita_portfolio()
     pid = get_epita_portfolio_id()
+    put_portfolio(pid, portefolio, df)
     sp = start_period
     ep = end_period
     post_operations([12], [pid], sp, ep).values[0, 0]
@@ -219,7 +222,8 @@ def rate_portfolio(df):
     print(Fore.BLUE)
     print("Sharp of portfolio =", sharpe)
     print(Style.RESET_ALL)
-    if check_constraints_portfolio(df):
+    check_bool = check_constraints_portfolio(df)
+    if check_bool:
         print(Fore.GREEN)
         print("Constraint pass: True")
     else:
@@ -227,3 +231,4 @@ def rate_portfolio(df):
         print("Constraint pass: False")
     print(Style.RESET_ALL)
     print("//////////////////////////////////////")
+    return sharpe, check_bool
