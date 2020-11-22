@@ -7,6 +7,7 @@ from optimizers.tables import *
 
 import numpy as np
 import pandas as pd
+from colorama import Fore, Back, Style
 
 
 def stock_constraint(x, price_mat, stock_ids):
@@ -58,22 +59,59 @@ def post_operations(ratios, ids, start, end, bench=None, frequency=None):
 
 def check_constraints(assets_ids, x):
     stocks = get_types_ids(assets_ids, ["STOCK"])
-    print("assets ids tested: ", assets_ids)
-    print("stocks are numbers: ", stocks)
-    print("stock part %:", np.sum(x[stocks]) * 100 / np.sum(x))
-    print("%nav between 0.01 and 0.1:", np.all(x <= 0.1) and np.all(x >= 0.01))
-    print("assets between 15 and 40:", len(
-        assets_ids) > 14 and len(assets_ids) < 41)
+    # print("assets ids tested: ", assets_ids)
+    # print("stocks are numbers: ", stocks)
+    # print("stock part %:", np.sum(x[stocks]) * 100 / np.sum(x))
+    # print("%nav between 0.01 and 0.1:", np.all(x <= 0.1) and np.all(x >= 0.01))
+    # print("assets between 15 and 40:", len(
+    #     assets_ids) > 14 and len(assets_ids) < 41)
+    return len(assets_ids) > 14 and len(assets_ids) < 41 and np.all(x <= 0.1) and np.all(x >= 0.01) and (np.sum(x[stocks]) * 100 / np.sum(x)) > 50
 
 
 def check_constraints_portfolio(portfolio_df):
-    asset_id = np.array(portfolio_df.asset_id.tolist())
+    assets_ids = np.array(portfolio_df.asset_id.tolist())
+    stocks_ids = get_types_ids(assets_ids, ["STOCK"])
     quantities = np.array(portfolio_df.quantities.tolist())
-    prices = get_prices(asset_id)
+    prices = get_prices(assets_ids)
+    types = get_types(assets_ids)
     total_price = np.dot(prices, quantities)
     each_price = prices * quantities
+
     nav = each_price / total_price
-    return (nav, np.all(nav > 0.01) and np.all(nav < 0.1))
+    stock_percent = np.sum(each_price[stocks_ids]) * 100 / np.sum(each_price)
+
+    stock_percent_check = stock_percent > 50
+    nav_check = nav[np.logical_and(nav > 0.01, nav < 0.1)]
+    len_check = len(assets_ids) >= 15 and len(assets_ids) <= 40
+
+    portfolio_df["close"] = prices
+    portfolio_df["montant"] = each_price
+    portfolio_df["nav"] = nav
+    portfolio_df["types"] = types
+    print(portfolio_df)
+
+    print("---------------------")
+    print("Portfolio total price:", total_price)
+    print("Portfolio stock price:", np.sum(each_price[stocks_ids]))
+    print("---------------------\n")
+    if stock_percent_check:
+        print(Fore.GREEN)
+    else:
+        print(Fore.RED)
+    print("Stock percent        :",  stock_percent)
+    if np.all(nav_check):
+        print(Fore.GREEN)
+    else:
+        print(Fore.RED)
+    print("%Nav check           :", nav_check)
+    if len_check:
+        print(Fore.GREEN)
+    else:
+        print(Fore.RED)
+    print("[15;40] assets check :",  len(assets_ids))
+    print(Style.RESET_ALL)
+
+    return stock_percent_check and np.all(nav_check) and len_check
 
 
 def sharping_together(algo_opti, stock_percent, fund_percent):
@@ -84,7 +122,7 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
     sharps = post_operations([12], stock_ids, start_period, end_period)
     sharps = post_operations([12], stock_ids, start_period, end_period)
     stock_ids = sharps.sort_values(
-        by="Sharpe", ascending=False).index[:50].tolist()
+        by="Sharpe", ascending=False).index[:30].tolist()
 
     print("REDUCE STOCKS")
     stock_part = algo_opti(stock_ids, True)
@@ -95,7 +133,6 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
 
     print("COMPUTE BEST STOCKS")
     sfinal_part = algo_opti(sfinal_ids, False)
-    print("stock part:", sfinal_part)
 
     fund_ids = select_type(["FUND"]).tolist()
     sharps = post_operations([12], fund_ids, start_period, end_period)
@@ -110,19 +147,16 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
     ffinal_ids = df[:, 0][:16].astype(int)
 
     print("COMPUTE BEST FUNDS")
-    print("computed ids:", ffinal_ids)
     ffinal_part = algo_opti(ffinal_ids, False)
-    print("fund part:", ffinal_part)
 
-    print("REDUCE PART")
+    print("REDUCE BEST")
     final_ids = np.concatenate((sfinal_ids, ffinal_ids))
     final_part = np.concatenate(
         (sfinal_part * stock_percent, ffinal_part * fund_percent))
 
     prices = np.array(get_prices(final_ids))
 
-    check_constraints(final_ids, final_part)
-    print("final weight: ", final_part)
+    print("basic check:", check_constraints(final_ids, final_part))
 
     assets_dataframe = pd.DataFrame(
         data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
@@ -142,18 +176,15 @@ def sharping_stocks(algo_opti):
 
     print("REDUCE")
     stock_part = algo_opti(stock_ids, True)
-    print("stock part:", stock_part)
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
     final_ids = df[:, 0][:18].astype(int)
 
     print("COMPUTE BEST")
-    print("computed ids:", final_ids)
     final_part = algo_opti(final_ids, False)
     prices = np.array(get_prices(final_ids))
 
-    check_constraints(final_ids, final_part)
-    print("final weight: ", final_part)
+    print("basic check:", check_constraints(final_ids, final_part))
 
     assets_dataframe = pd.DataFrame(
         data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
@@ -162,7 +193,7 @@ def sharping_stocks(algo_opti):
     return assets_dataframe
 
 
-def get_best_weigth(algo, both, stock=0.6, fund=0.5):
+def get_best_weigth(algo, both, stock=0.6, fund=0.4):
     if(both):
         if(algo == "scipy"):
             return sharping_together(scipy_optimise, stock, fund)
@@ -178,13 +209,21 @@ def get_best_weigth(algo, both, stock=0.6, fund=0.5):
 
 def rate_portfolio(df):
     portefolio = get_epita_portfolio()
-    portefolio_id = get_epita_portfolio_id()
-    put_portfolio(portefolio_id, portefolio, df)
-    post_operations([12], [portefolio_id], start_period,
-                    end_period).values[0, 0]
+    pid = get_epita_portfolio_id()
+    sp = start_period
+    ep = end_period
+    post_operations([12], [pid], sp, ep).values[0, 0]
+    sharpe = post_operations([12], [pid], sp, ep).values[0, 0]
+
     print("//////////////////////////////////////")
-    print("Sharp of portfolio =", post_operations(
-        [12], [portefolio_id], start_period, end_period).values[0, 0])
-    print("Constraint pass =", check_constraints_portfolio(df)[1])
+    print(Fore.BLUE)
+    print("Sharp of portfolio =", sharpe)
+    print(Style.RESET_ALL)
+    if check_constraints_portfolio(df):
+        print(Fore.GREEN)
+        print("Constraint pass: True")
+    else:
+        print(Fore.RED)
+        print("Constraint pass: False")
+    print(Style.RESET_ALL)
     print("//////////////////////////////////////")
-    print("Constraint weight =", check_constraints_portfolio(df)[0])
