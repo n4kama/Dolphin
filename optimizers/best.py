@@ -1,5 +1,6 @@
 from DolphinApi.config import *
 from optimizers.weights import pso_optimise, scipy_optimise
+from colorama import Fore, Back, Style
 
 from optimizers.portfolio import *
 from optimizers.utils import *
@@ -7,7 +8,6 @@ from optimizers.tables import *
 
 import numpy as np
 import pandas as pd
-from colorama import Fore, Back, Style
 
 
 def stock_constraint(x, price_mat, stock_ids):
@@ -172,7 +172,7 @@ def sharping_stocks(algo_opti):
     sharps = post_operations([12], stock_ids, start_period, end_period)
     sharps = post_operations([12], stock_ids, start_period, end_period)
     stock_ids = sharps.sort_values(
-        by="Sharpe", ascending=False).index[:30].tolist()
+        by="Sharpe", ascending=False).index[:24].tolist()
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
 
@@ -180,7 +180,7 @@ def sharping_stocks(algo_opti):
     stock_part = algo_opti(stock_ids, True)
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
-    final_ids = df[:, 0][:18].astype(int)
+    final_ids = df[:, 0][:22].astype(int)
 
     print("COMPUTE BEST")
     final_part = algo_opti(final_ids, False)
@@ -195,17 +195,59 @@ def sharping_stocks(algo_opti):
     return assets_dataframe
 
 
-def get_best_weigth(algo, both, stock=0.6, fund=0.4):
-    if(both):
+def multi_sharp_stocks(algo_opti):
+    stock_ids = select_type(["STOCK"]).tolist()
+    sharps = post_operations([12], stock_ids, start_period, end_period)
+    sharps = post_operations([12], stock_ids, start_period, end_period)
+    portefolio_id = get_epita_portfolio_id()
+    portefolio = get_epita_portfolio()
+
+    print("REDUCE")
+    sharpes = []
+    dfs = []
+    for i in range(20, 25):
+        for j in range(i, i + 20, 2):
+            final_ids = sharps.sort_values(
+                by="Sharpe", ascending=False).index[:j].tolist()
+            stock_part = algo_opti(final_ids, True)
+
+            df = pd.DataFrame(np.stack((final_ids, stock_part), axis=-1),
+                            columns=["ids", "part"]).sort_values(by="part", ascending=False).values
+            final_ids = df[:, 0][:i].astype(int)
+
+            print("COMPUTE BEST")
+            final_part = algo_opti(final_ids, False)
+            prices = np.array(get_prices(final_ids))
+
+            print("basic check:", check_constraints(final_ids, final_part))
+
+            assets_dataframe = pd.DataFrame(
+                data={'asset_id': final_ids, 'quantities': np.round((final_part * 1000000000) / prices)})
+
+            put_portfolio(portefolio_id, portefolio, assets_dataframe)
+            s, c = rate_portfolio(assets_dataframe)
+            if c:
+                sharpes.append((i,j,s))
+                dfs.append(assets_dataframe)
+    return sharpes, dfs
+
+
+def get_best_weigth(algo, both=False, stock=0.6, fund=0.4, multi=False):
+    if (both and not multi):
         if(algo == "scipy"):
             return sharping_together(scipy_optimise, stock, fund)
         elif (algo == "pso"):
             return sharping_together(pso_optimise, stock, fund)
-    else:
+    elif (not multi):
         if(algo == "scipy"):
             return sharping_stocks(scipy_optimise)
         elif (algo == "pso"):
             return sharping_stocks(pso_optimise)
+    if (multi):
+        if(algo == "scipy"):
+            return multi_sharp_stocks(scipy_optimise)
+        elif (algo == "pso"):
+            return multi_sharp_stocks(pso_optimise)
     print("choose an algorithm : 'pso' or 'scipy'")
 
 
