@@ -114,38 +114,52 @@ def check_constraints_portfolio(portfolio_df):
     return stock_percent_check and np.all(nav_check) and len_check
 
 
+def corr_select(start, end, nb, types, simple=False):
+
+    ids = select_type(types).tolist()
+    sharps = post_operations([12], ids, start_period, end_period)
+    sharps = post_operations([12], ids, start_period, end_period)
+    sharpes_df = sharps.sort_values(by="Sharpe", ascending=False)
+    best_ids = sharpes_df.index.values.tolist()[:nb]
+    if(simple):
+        return best_ids
+    total_quote = pd.read_csv("all_closes.csv", index_col=0)
+    corr_table = total_quote[np.array(best_ids).astype(str)].corr()
+    corr_table['asset_id_1'] = corr_table.index
+    corr_table = corr_table.melt(
+        id_vars='asset_id_1', var_name="asset_id_2").reset_index(drop=True)
+    corr_table = corr_table[corr_table['asset_id_1']
+                            < corr_table['asset_id_2']].dropna()
+    corr_table['abs_value'] = np.abs(corr_table['value'])
+    summed = corr_table.sort_values(
+        by="abs_value", ascending=False).groupby("asset_id_1").sum()
+    return summed.sort_values(by="abs_value", ascending=False).index.values.astype(int)
+
+
 def sharping_together(algo_opti, stock_percent, fund_percent):
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
-
-    stock_ids = select_type(["STOCK"]).tolist()
-    sharps = post_operations([12], stock_ids, start_period, end_period)
-    sharps = post_operations([12], stock_ids, start_period, end_period)
-    stock_ids = sharps.sort_values(
-        by="Sharpe", ascending=False).index[:30].tolist()
+    stock_ids = corr_select(start_period, end_period,
+                            25, ["STOCK"], simple=False)
+    fund_ids = corr_select(start_period, end_period, 25, [
+                           "FUND", "ETF FUND"], simple=False)
 
     print("REDUCE STOCKS")
     stock_part = algo_opti(stock_ids, True)
 
     df = pd.DataFrame(np.stack((stock_ids, stock_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
-    sfinal_ids = df[:, 0][:16].astype(int)
+    sfinal_ids = df[:, 0][:11].astype(int)
 
     print("COMPUTE BEST STOCKS")
     sfinal_part = algo_opti(sfinal_ids, False)
     print("basic check:", check_constraints(sfinal_ids, sfinal_part))
 
-    fund_ids = select_type(["FUND"]).tolist()
-    sharps = post_operations([12], fund_ids, start_period, end_period)
-    sharps = post_operations([12], fund_ids, start_period, end_period)
-    fund_ids = sharps.sort_values(
-        by="Sharpe", ascending=False).index[:50].tolist()
-
     print("REDUCE FUNDS")
     fund_part = algo_opti(fund_ids, True)
     df = pd.DataFrame(np.stack((fund_ids, fund_part), axis=-1),
                       columns=["ids", "part"]).sort_values(by="part", ascending=False).values
-    ffinal_ids = df[:, 0][:16].astype(int)
+    ffinal_ids = df[:, 0][:11].astype(int)
 
     print("COMPUTE BEST FUNDS")
     ffinal_part = algo_opti(ffinal_ids, False)
@@ -168,11 +182,8 @@ def sharping_together(algo_opti, stock_percent, fund_percent):
 
 
 def sharping_stocks(algo_opti):
-    stock_ids = select_type(["STOCK"]).tolist()
-    sharps = post_operations([12], stock_ids, start_period, end_period)
-    sharps = post_operations([12], stock_ids, start_period, end_period)
-    stock_ids = sharps.sort_values(
-        by="Sharpe", ascending=False).index[:24].tolist()
+    stock_ids = corr_select(start_period, end_period,
+                            24, ["STOCK"], simple=True)
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
 
@@ -196,9 +207,8 @@ def sharping_stocks(algo_opti):
 
 
 def multi_sharp_stocks(algo_opti):
-    stock_ids = select_type(["STOCK"]).tolist()
-    sharps = post_operations([12], stock_ids, start_period, end_period)
-    sharps = post_operations([12], stock_ids, start_period, end_period)
+    stock_ids = corr_select(start_period, end_period,
+                            50, ["STOCK"], simple=False)
     portefolio_id = get_epita_portfolio_id()
     portefolio = get_epita_portfolio()
 
@@ -207,12 +217,11 @@ def multi_sharp_stocks(algo_opti):
     dfs = []
     for i in range(20, 25):
         for j in range(i, i + 20, 2):
-            final_ids = sharps.sort_values(
-                by="Sharpe", ascending=False).index[:j].tolist()
+            final_ids = stock_ids[:j]
             stock_part = algo_opti(final_ids, True)
 
             df = pd.DataFrame(np.stack((final_ids, stock_part), axis=-1),
-                            columns=["ids", "part"]).sort_values(by="part", ascending=False).values
+                              columns=["ids", "part"]).sort_values(by="part", ascending=False).values
             final_ids = df[:, 0][:i].astype(int)
 
             print("COMPUTE BEST")
@@ -227,7 +236,7 @@ def multi_sharp_stocks(algo_opti):
             put_portfolio(portefolio_id, portefolio, assets_dataframe)
             s, c = rate_portfolio(assets_dataframe)
             if c:
-                sharpes.append((i,j,s))
+                sharpes.append((i, j, s))
                 dfs.append(assets_dataframe)
     return sharpes, dfs
 
