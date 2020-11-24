@@ -1,4 +1,4 @@
-# Projet Dolphin
+# 💸 Projet Dolphin 💸
 
 ## Membres du groupe
 
