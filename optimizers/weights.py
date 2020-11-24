@@ -86,6 +86,7 @@ def scipy_optimise(assets_ids, fast):
     fast_rangeb = tuple((0, 0.1) for i in range(nb_assets))
     rangeb = tuple((0.012, 0.098) for i in range(nb_assets))
 
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 0.95})
 
     prices = get_prices(assets_ids)
 
@@ -101,8 +102,8 @@ def scipy_optimise(assets_ids, fast):
                                  ws,
                                  (assets_ids, return_matrix, cov_matrix, prices),
                                  method='TNC',
-                                 options={'maxiter': 5000, 'ftol': 1e-08, 'disp': True, 'eps': 0.000001},
-                                 bounds=fast_rangeb)
+                                 options={'maxiter': 1000, 'ftol': 1e-08, 'disp': True, 'eps': 0.000001},
+                                 bounds=rangeb)
 
 
     return np.array(xopt.x)

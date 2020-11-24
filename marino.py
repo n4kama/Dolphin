@@ -3,11 +3,11 @@ import sys
 
 algo = sys.argv[1]
 try:
-    both = sys.argv[2]
+    both = sys.argv[2] == "True"
 except:
     both = False
 try:
-    multi = sys.argv[3]
+    multi = sys.argv[3] == "True"
 except:
     multi = False
 
