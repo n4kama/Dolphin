@@ -102,7 +102,7 @@ def scipy_optimise(assets_ids, fast):
                                  ws,
                                  (assets_ids, return_matrix, cov_matrix, prices),
                                  method='TNC',
-                                 options={'maxiter': 1000, 'ftol': 1e-08, 'disp': True, 'eps': 0.0005},
+                                 options={'maxiter': 1000, 'ftol': 1e-08, 'disp': True, 'eps': 0.0008845},
                                  bounds=rangeb)
 
 
